@@ -34,7 +34,11 @@
 #include <cpuid.h>
 #endif
 
-#if ((defined(__X86__) || defined(__i386__) || defined(i386) || defined(_M_IX86) || defined(__386__) || defined(__x86_64__) || defined(_M_X64)))
+#if defined(__loongarch64)
+#include <larchintrin.h>
+#endif
+
+#if ((defined(__X86__) || defined(__i386__) || defined(i386) || defined(_M_IX86) || defined(__386__) || defined(__x86_64__) || defined(_M_X64) || defined(__loongarch64)))
 #if !defined(__SSE4_2__)
 
 namespace Hdfs {
@@ -42,23 +46,39 @@ namespace Internal {
 
 #if defined(__LP64__)
 static inline uint64_t _mm_crc32_u64(uint64_t crc, uint64_t value) {
+#if defined(__loongarch64)
+   crc = __crcc_w_d_w(value,crc);
+#else
     asm("crc32q %[value], %[crc]\n" : [crc] "+r"(crc) : [value] "rm"(value));
+#endif
     return crc;
 }
 #endif
 
 static inline uint32_t _mm_crc32_u16(uint32_t crc, uint16_t value) {
+#if defined(__loongarch64)
+    crc = __crcc_w_h_w(value,crc);
+#else
     asm("crc32w %[value], %[crc]\n" : [crc] "+r"(crc) : [value] "rm"(value));
+#endif
     return crc;
 }
 
-static inline uint32_t _mm_crc32_u32(uint32_t crc, uint64_t value) {
+static inline uint32_t _mm_crc32_u32(uint32_t crc, uint32_t value) {
+#if defined(__loongarch64)
+    crc = __crcc_w_w_w(value,crc);
+#else
     asm("crc32l %[value], %[crc]\n" : [crc] "+r"(crc) : [value] "rm"(value));
+#endif
     return crc;
 }
 
 static inline uint32_t _mm_crc32_u8(uint32_t crc, uint8_t value) {
+#if defined(__loongarch64)
+    crc = __crcc_w_b_w(value,crc);
+#else
     asm("crc32b %[value], %[crc]\n" : [crc] "+r"(crc) : [value] "rm"(value));
+#endif
     return crc;
 }
 
@@ -86,14 +106,14 @@ bool HWCrc32c::available() {
      */
     __get_cpuid(1, &eax, &ebx, &ecx, &edx);
     return (ecx & (1 << 20)) != 0;
-#elif ((defined(__arm__) || defined(__aarch64__)))
+#elif ((defined(__arm__) || defined(__aarch64__) || defined(__loongarch64)))
     return true;    
 #else
     return false;
 #endif
 }
 
-#if !((defined(__ppc__) || defined(__powerpc64__)) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__))
+#if !(((defined(__PPC64__) || defined(__powerpc64__)) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)) || (defined(__s390x__)))
 void HWCrc32c::update(const void * b, int len) {
     const char * p = static_cast<const char *>(b);
 #if defined(__LP64__)

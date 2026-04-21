@@ -1,11 +1,5 @@
 /********************************************************************
- * Copyright (c) 2013 - 2014, Pivotal Inc.
- * All rights reserved.
- *
- * Author: Zhanwei Wang
- ********************************************************************/
-/********************************************************************
- * 2014 -
+ * 2024 -
  * open source under Apache License Version 2.0
  ********************************************************************/
 /**
@@ -25,56 +19,51 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef _HDFS_LIBHDFS3_COMMON_INTELASMCRC32C_H_
-#define _HDFS_LIBHDFS3_COMMON_INTELASMCRC32C_H_
+#ifndef _HDFS_LIBHDFS3_COMMON_LOCKVECTOR_H_
+#define _HDFS_LIBHDFS3_COMMON_LOCKVECTOR_H_
 
-#if defined(__SSE4_2__) && defined(__LP64__) &&!defined(__APPLE__)
-
-#include "Checksum.h"
+#include <mutex>
+#include <vector>
 
 namespace Hdfs {
 namespace Internal {
 
-/**
- * Calculate CRC with Intel ASM(https://github.com/htot/crc32c).
- * Which is at least 2x faster than HWCrc32c.
- */
-class IntelAsmCrc32c: public Checksum {
+template<typename T>
+class LockVector{
+    std::mutex mlock;
+    std::vector<T> mvec;
+
 public:
-    /**
-     * Constructor.
-     */
-    IntelAsmCrc32c() :
-        crc(0xFFFFFFFF) {
+    void push_back(const T& value) {
+        std::lock_guard<std::mutex> lock(mlock);
+        mvec.push_back(value);
     }
 
-    uint32_t getValue() {
-        return ~crc;
+    void clear() {
+        std::lock_guard<std::mutex> lock(mlock);
+        mvec.clear();
     }
 
-    /**
-     * @ref Checksum#reset()
-     */
-    void reset() {
-        crc = 0xFFFFFFFF;
+    void sort() {
+        std::lock_guard<std::mutex> lock(mlock);
+        std::sort(mvec.begin(), mvec.end());
     }
 
-    /**
-     * @ref Checksum#update(const void *, int)
-     */
-    void update(const void * b, int len);
+    bool binary_search(const T &value) {
+        std::lock_guard<std::mutex> lock(mlock);
+        return std::binary_search(mvec.begin(), mvec.end(), value);
+    }
 
-    /**
-     * Destory an HWCrc32 instance.
-     */
-    ~IntelAsmCrc32c() { }
+    const std::vector<T>& get(){
+        return mvec;
+    }
 
-private:
-    uint32_t crc;
+    void set(std::vector<T> &vec) {
+        mvec = vec;
+    }
+
 };
 
-
 }
 }
-#endif
-#endif
+#endif //_HDFS_LIBHDFS3_COMMON_LOCKVECTOR_H_
